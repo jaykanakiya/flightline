@@ -1,0 +1,89 @@
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.2.7
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=1G
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      # The official image disables network access for 'default' unless a
+      # user/password is set explicitly - fine for local dev, not meant for
+      # anything beyond that.
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=flightline
+    volumes:
+      - ./deploy/clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - clickhouse-data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
+    depends_on:
+      - clickhouse
+
+  ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingest
+    ports:
+      - "8080:8080"
+    environment:
+      - REDPANDA_BROKERS=redpanda:9092
+      - SPANS_TOPIC=spans
+      - INGEST_ADDR=:8080
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile.consumer
+    environment:
+      - REDPANDA_BROKERS=redpanda:9092
+      - SPANS_TOPIC=spans
+      - CONSUMER_GROUP=spans-consumer
+      - CLICKHOUSE_ADDR=clickhouse:9000
+      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=flightline
+      - BATCH_MAX_SIZE=10000
+      - BATCH_MAX_WAIT_MS=1000
+    restart: on-failure
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+
+volumes:
+  clickhouse-data:
