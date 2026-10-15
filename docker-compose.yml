@@ -47,6 +47,9 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - clickhouse
 
@@ -60,6 +63,11 @@ services:
       - REDPANDA_BROKERS=redpanda:9092
       - SPANS_TOPIC=spans
       - INGEST_ADDR=:8080
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     depends_on:
       redpanda:
         condition: service_healthy
@@ -83,6 +91,35 @@ services:
       redpanda:
         condition: service_healthy
       clickhouse:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8082:8081"
+    environment:
+      - API_ADDR=:8081
+      - CLICKHOUSE_ADDR=clickhouse:9000
+      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=flightline
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  # Not started by `docker compose up`. Run on demand:
+  #   docker compose --profile tools run --rm generator -total 20000 -rate 500
+  generator:
+    build:
+      context: .
+      dockerfile: Dockerfile.generator
+    profiles: ["tools"]
+    environment:
+      - INGEST_URL=http://ingest:8080/v1/spans
+    depends_on:
+      ingest:
         condition: service_healthy
 
 volumes:

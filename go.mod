@@ -1,10 +1,12 @@
 module github.com/jaykanakiya/flightline-observability
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.49.0
+	github.com/google/uuid v1.6.0
 	github.com/segmentio/kafka-go v0.4.51
+	golang.org/x/time v0.16.0
 )
 
 require (
@@ -13,7 +15,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/compress v1.19.1 // indirect
 	github.com/paulmach/orb v0.13.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.27 // indirect

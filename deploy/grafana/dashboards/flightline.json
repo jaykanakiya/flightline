@@ -1,0 +1,70 @@
+{
+  "title": "Flightline Observability",
+  "uid": "flightline-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Tool failure rate (last 24h)",
+      "type": "table",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 10 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+          "rawSql": "SELECT tool_name, countIf(status != 'ok') AS failures, count() AS total, round(countIf(status != 'ok') / count(), 4) AS failure_rate FROM spans WHERE step_type = 'tool_call' AND tool_name != '' AND start_time >= now() - INTERVAL 24 HOUR GROUP BY tool_name ORDER BY failure_rate DESC",
+          "format": 1
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Top run costs",
+      "type": "table",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 10 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+          "rawSql": "SELECT run_id, round(sum(cost_usd), 6) AS total_cost_usd, sum(input_tokens) AS input_tokens, sum(output_tokens) AS output_tokens FROM spans GROUP BY run_id ORDER BY total_cost_usd DESC LIMIT 20",
+          "format": 1
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Latency by step/tool (p50/p95/p99 ms)",
+      "type": "table",
+      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 10 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+          "rawSql": "SELECT step_type, tool_name, round(quantile(0.5)(latency_ms)) AS p50, round(quantile(0.95)(latency_ms)) AS p95, round(quantile(0.99)(latency_ms)) AS p99, count() AS total FROM spans GROUP BY step_type, tool_name ORDER BY p99 DESC",
+          "format": 1
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Runs stuck in loops (4+ repeats)",
+      "type": "table",
+      "gridPos": { "x": 12, "y": 10, "w": 12, "h": 10 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+          "rawSql": "SELECT run_id, tool_name, input_hash, count() AS repeats FROM spans WHERE step_type = 'tool_call' AND input_hash != '' GROUP BY run_id, tool_name, input_hash HAVING repeats >= 4 ORDER BY repeats DESC",
+          "format": 1
+        }
+      ]
+    }
+  ]
+}
