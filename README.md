@@ -77,7 +77,3 @@ Fixing it properly means picking a tradeoff: reordering the primary key to put `
 - **Replay.** Being able to re-run a stuck or failed run's spans through a debugger/visualizer, not just query them.
 - **Multi-tenancy.** Spans currently have no tenant/project boundary; `agent_name` is just a label, not an access boundary.
 - **Retention policies.** The schema has a 30-day TTL on `start_time`; making that configurable per-deployment instead of hardcoded in `init.sql`.
-
-## Out of scope
-
-Auth, multi-tenancy, a custom web UI, hosting/deployment, Kubernetes, and replay were intentionally left out to keep this a focused demo rather than a product.
