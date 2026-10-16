@@ -68,8 +68,6 @@ This counts occurrences rather than requiring them to be consecutive - a run tha
 
 The `loops` query. At 10.6M rows it runs at p50 1.35s / p95 2.7s, while the other three stats queries stay under 130ms at the same row count. The difference is the `spans` table's `ORDER BY (run_id, tool_name, start_time)`: `tool-failures` and `slow-steps` group by a couple of low-cardinality columns ClickHouse aggregates in one fast pass, and `run-costs` groups by `run_id` which happens to lead the sort key. `loops` groups by `(run_id, tool_name, input_hash)` - `input_hash` isn't in the sort key at all, so ClickHouse can't use the primary key to narrow the scan and has to aggregate over the whole table.
 
-Fixing it properly means picking a tradeoff: reordering the primary key to put `input_hash` earlier would speed up `loops` but slow down the queries that currently benefit from `run_id` leading the key; a secondary data-skipping index on `input_hash` would help but adds write overhead on every insert; a periodically-refreshed materialized view pre-aggregating `(run_id, tool_name, input_hash)` counts would make `loops` fast without touching the other three, at the cost of a second table to keep in sync. None of those were worth adding for a 10M-row demo, but they're the real options if this needed to run fast at 10x the scale - noted in Next steps.
-
 ## Next steps
 
 - **OTLP/HTTP ingestion.** The ingest service only accepts the project's own JSON span format today; adding an OTLP/HTTP endpoint using the OpenTelemetry GenAI semantic conventions would let it accept traces from existing OTel-instrumented agents without a custom SDK.
